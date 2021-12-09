@@ -83,10 +83,11 @@ export default function Regiser(){
         
         dispatch(getReference('RELATIONSHIPTYPE'))
         .then(res=>{
-            //TODO: Must return an array
-            const { referenceCode: value, referenceDesc: label } = res.data;
             if(isMounted){
-                setRelationshipOptions([{ value, label}]);
+                setRelationshipOptions(res.data.map(item=>{
+                    const { referenceCode: value, referenceDesc: label } = item;
+                    return { value, label };
+                }));
                 setRelationshipOptionsLoading(false);
             }
         })
@@ -186,8 +187,8 @@ export default function Regiser(){
                                         <AuthInput
                                             type="email"
                                             placeholder="Email Address"
-                                            name="email"
-                                            value={credentials.email}
+                                            name="username"
+                                            value={credentials.username}
                                             onChange={handleChange}
                                             icon={<MailIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                             className={`${errors.includes('Email') ? 'input-error' : ''}`}

@@ -81,7 +81,7 @@ export default function ParentInformation(){
         
         if(decryptData(data)){
             console.log(decryptData(data))
-            const { firstName, lastName, middleName, mobileNumber, referenceCode } = decryptData(data);
+            const { firstName, lastName, middleName, mobileNumber, referenceCode, username } = decryptData(data);
             if(isMounted){
                 if(referenceCode.toLowerCase() === 'father')
                     setInfo({
@@ -90,6 +90,25 @@ export default function ParentInformation(){
                         father_lastName: lastName,
                         father_middleName: middleName,
                         father_mobile: mobileNumber,
+                        father_email: username,
+                    })
+                else if(referenceCode.toLowerCase() === 'mother')
+                    setInfo({
+                        ...info,
+                        mother_firstName: firstName,
+                        mother_lastName: lastName,
+                        mother_middleName: middleName,
+                        mother_mobile: mobileNumber,
+                        mother_email: username,
+                    })
+                else 
+                    setInfo({
+                        ...info,
+                        guardian_firstName: firstName,
+                        guardian_lastName: lastName,
+                        guardian_middleName: middleName,
+                        guardian_mobile: mobileNumber,
+                        guardian_email: username,
                     })
             }
         }else history.push('/');
