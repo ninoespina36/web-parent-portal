@@ -5,14 +5,12 @@ const instance = axios.create({
   baseURL : 'https://edulearn-adam.cf/'
 });
 
-instance.defaults.headers.common.Authorization = `Bearer ${store.getState().auth.user.token}`;
-
-instance.interceptors.response.use(
-  response => response,
-  (error) => {
-    console.log(error.response.status);
-    return Promise.reject(error);
+instance.interceptors.request.use(
+  async config => {
+    config.headers.Authorization = `Bearer ${store?.getState()?.auth?.token}`;
+    return config;
   },
+  err => { return Promise.reject(err) }
 );
 
 export default instance;

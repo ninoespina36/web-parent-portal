@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { Link, useHistory } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { MailIcon, KeyIcon, LockClosedIcon } from '@heroicons/react/outline';
 import _ from 'underscore';
 
@@ -9,29 +9,20 @@ import schoolLogo from '../../images/SCHOOL.png';
 import bg from '../../images/registration-bg.png';
 import AuthInput from '../../components/Auth/AuthInput';
 import AuthSubmitBtn from '../../components/Auth/AuthSubmitBtn';
-import AuthSelect from '../../components/Auth/AuthSelect';
 import Toast from '../../components/Toast';
-import { getReference } from '../../services/referenceService';
-import { authRegister } from '../../services/authService';
-import { encryptData } from '../../Helpers';
-import { displayErrors } from '../../Helpers';
+import { authRegister, authLogin } from '../../services/authService';
+import { displayErrors, showServerError } from '../../Helpers';
 
 export default function Regiser(){
 
     const dispatch = useDispatch();
     const [ loading, setLoading ] = useState(false);
     const [ errors, setErrors ] = useState([]);
-    const history = useHistory();
-    
-    const [ relationshipOptionsLoading, setRelationshipOptionsLoading ] = useState(true);
-    const [ relationshipOptions, setRelationshipOptions ] = useState([]);
-
     const [ credentials, setCredentials ] = useState({
         firstName: '',
         lastName: '',
         middleName: '',
         username: '',
-        referenceCode: '',
         email: '',
         password: '',
         confirmPassword: '',
@@ -47,8 +38,8 @@ export default function Regiser(){
         setErrors([]);
         dispatch(authRegister(credentials))
         .then(res=>{
-            setLoading(false);
-            history.push(`/parent-information/${encryptData(res.data)}`);
+            if(res.status === 200) formLogin();
+            else showServerError();
         })
         .catch(err=>{
             setLoading(false);
@@ -59,7 +50,18 @@ export default function Regiser(){
                     }));
                     Toast.error(displayErrors(err.data.errors, err.data.title));
                 }
-            }else Toast.error('Something went wrong. Please try again later.');
+            }else showServerError();
+        })
+    }
+
+    const formLogin = () =>{
+        dispatch(authLogin({ username: credentials.username, password: credentials.password }))
+        .then(()=>{
+            setLoading(false);
+        })
+        .catch(err=>{
+            setLoading(false);
+            console.log(err)
         })
     }
 
@@ -78,29 +80,9 @@ export default function Regiser(){
         })
     }
 
-    useEffect(()=>{
-        let isMounted  = true;
-        
-        dispatch(getReference('RELATIONSHIPTYPE'))
-        .then(res=>{
-            if(isMounted){
-                setRelationshipOptions(res.data.map(item=>{
-                    const { referenceCode: value, referenceDesc: label } = item;
-                    return { value, label };
-                }));
-                setRelationshipOptionsLoading(false);
-            }
-        })
-        .catch(err=>{
-            console.log(err)
-        })
-
-        return ()=> isMounted = false;
-    }, [ dispatch ]);
-
     return (
         <div className="flex flex-grow bg-gray-100 min-h-screen min-w-screen items-center justify-center relative p-4">
-            <form onSubmit={formRegister}>
+            <form onSubmit={formRegister} className="sm:w-auto w-full">
                
                 <div className="shadow-3xl bg-white w-full rounded-lg overflow-hidden">
                     <div className="grid grid-cols-12">
@@ -162,17 +144,6 @@ export default function Regiser(){
                                         />
                                     </div>
                                     <div className="md:col-span-6 col-span-12">
-                                       <AuthSelect
-                                            options={relationshipOptions}
-                                            placeholder="Relationship to Student"
-                                            isLoading={relationshipOptionsLoading}
-                                            onChange={({value}) => setCredentials({...credentials, referenceCode: value})}
-                                            hasError={errors.includes('ReferenceCode')}
-                                            required
-                                            hasLabel
-                                       />
-                                    </div>
-                                    <div className="md:col-span-6 col-span-12">
                                         <AuthInput
                                             placeholder="Mobile Number"
                                             name="mobileNumber"
@@ -183,7 +154,7 @@ export default function Regiser(){
                                             hasLabel
                                         />
                                     </div>
-                                    <div className="col-span-12">
+                                    <div className="md:col-span-6 col-span-12">
                                         <AuthInput
                                             type="email"
                                             placeholder="Email Address"
@@ -191,7 +162,7 @@ export default function Regiser(){
                                             value={credentials.username}
                                             onChange={handleChange}
                                             icon={<MailIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
-                                            className={`${errors.includes('Email') ? 'input-error' : ''}`}
+                                            className={`${errors.includes('Username') ? 'input-error' : ''}`}
                                             required
                                             hasLabel
                                         />
@@ -217,6 +188,7 @@ export default function Regiser(){
                                             value={credentials.confirmPassword}
                                             onChange={handleChange}
                                             icon={<LockClosedIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
+                                            className={`${errors.includes('ConfirmPassword') ? 'input-error' : ''}`}
                                             required
                                             hasLabel
                                         />

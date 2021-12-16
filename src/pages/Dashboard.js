@@ -1,13 +1,18 @@
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Redirect } from 'react-router';
 
 import { logout } from '../store/reducers/authReducer';
 import maintenance from '../images/maintenance.png';
 
 export default function Dashboard(){
 
-    const { user: { firstName } } = useSelector(state => state.auth);
+    const { user: { firstName, isNewUser } } = useSelector(state => state.auth);
     const dispatch = useDispatch();
+
+    if(isNewUser){
+        return <Redirect to="/parent-information" />
+    }
 
     return (
         <div className="h-screen w-screen flex flex-wrap items-center justify-center">

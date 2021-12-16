@@ -5,8 +5,6 @@ import { MailIcon, KeyIcon } from '@heroicons/react/outline';
 import moment from 'moment';
 import _ from 'underscore';
 
-// import Toast from '../../components/Toast';
-
 import logo from '../../images/eve.png';
 import edulearnLogo from '../../images/edulearn-logo.png';
 import vector_1 from '../../images/vector-1.png';
@@ -17,7 +15,7 @@ import AuthSubmitBtn from '../../components/Auth/AuthSubmitBtn';
 import AuthBackBtn from '../../components/Auth/AuthBackBtn';
 import Toast from '../../components/Toast';
 import { authLogin } from '../../services/authService';
-import { displayErrors } from '../../Helpers';
+import { displayErrors, showServerError } from '../../Helpers';
 
 export default function Login(){
 
@@ -38,15 +36,18 @@ export default function Login(){
 
         dispatch(authLogin(credentials))
         .catch(err=>{
+            console.log(err)
             setLoading(false);
             if(err){
                 if(err.status === 400){
-                    setErrors(_.map(_.keys(err.data.errors), key => {
-                        return key;
-                    }));
-                    Toast.error(displayErrors(err.data.errors, err.data.title));
+                    if(err.data.errors){
+                        setErrors(_.map(_.keys(err.data.errors), key => {
+                            return key;
+                        }));
+                        Toast.error(displayErrors(err.data.errors, err.data.title));
+                    }else Toast.error(err.data);
                 }
-            }else Toast.error('Something went wrong. Please try again later.');
+            }else showServerError();
         })
     }
 
@@ -60,7 +61,7 @@ export default function Login(){
 
     return (
         <div className="flex flex-grow bg-gray-100 h-screen w-screen items-center justify-center relative px-4 pb-28 md:pb-0 bg-cover overflow-hidden">
-            <form onSubmit={formLogin}>
+            <form onSubmit={formLogin} className="sm:w-auto w-full">
                 <img 
                     className="w-2/6 mx-auto sm:mb-10 mb-5"
                     src={logo}

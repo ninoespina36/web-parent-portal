@@ -8,6 +8,7 @@ const defaultUserData = {
     schoolCode: null, 
     schoolID: null,
     username: null,
+    isNewUser: true
 }
 
 const authSlice = createSlice({
@@ -28,13 +29,17 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.token = null;
       state.user = defaultUserData;
-  },
+    },
+    grantUser: (state) => {
+      state.user.isNewUser = false;
+    },
   }
 })
 
 export const { 
     login, 
     logout,
+    grantUser
 } = authSlice.actions;
 
 export default authSlice.reducer;

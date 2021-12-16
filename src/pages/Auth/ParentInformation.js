@@ -1,55 +1,74 @@
 import React, { useEffect, useState } from 'react';
-// import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { MailIcon, PhoneIcon, DeviceMobileIcon } from '@heroicons/react/outline';
-import { useHistory, useParams } from 'react-router';
+import { useHistory, Redirect } from 'react-router';
+import _ from 'underscore';
 
-// import edulearnLogo from '../../images/edulearn-logo.png';
 import schoolLogo from '../../images/SCHOOL.png';
-// import moment from 'moment';
 import AuthInput from '../../components/Auth/AuthInput';
 import AuthSubmitBtn from '../../components/Auth/AuthSubmitBtn';
-import { decryptData } from '../../Helpers';
-// import Toast from '../../components/Toast';
+import AuthBackBtn from '../../components/Auth/AuthBackBtn';
+import AuthSelect from '../../components/Auth/AuthSelect';
+import Toast from '../../components/Toast';
+import { getReference } from '../../services/referenceService';
+import { updateParentInformation, updateParentAddress } from '../../services/authService';
+import { displayErrors, confirmAlert, showServerError } from '../../Helpers';
+import { logout, grantUser } from '../../store/reducers/authReducer';
 
 export default function ParentInformation(){
 
-    // const dispatch = useDispatch();
-    const [ loading, setLoading ] = useState(false);
-    const { data } = useParams();
+    const dispatch = useDispatch();
     const history = useHistory();
+    const { user: { applicantUserID, isNewUser } } = useSelector(state => state.auth);
+    const [ loading, setLoading ] = useState(false);
+    const [ relationshipOptionsLoading, setRelationshipOptionsLoading ] = useState(true);
+    const [ relationshipOptions, setRelationshipOptions ] = useState([]);
+    const [ errors, setErrors ] = useState([]);
+
+    console.log(errors)
+
     const [ info, setInfo ] = useState({
-        mother_firstName: '',
-        mother_lastName: '',
-        mother_middleName: '',
-        mother_birthdate: '',
-        mother_education: '',
-        mother_company: '',
-        mother_designation: '',
-        mother_mobile: '',
-        mother_email: '',
-        mother_landline: '',
+        applicantUserId: applicantUserID,
 
-        father_firstName: '',
-        father_lastName: '',
-        father_middleName: '',
-        father_birthdate: '',
-        father_education: '',
-        father_company: '',
-        father_designation: '',
-        father_mobile: '',
-        father_email: '',
-        father_landline: '',
+        motherTitle: '',
+        motherFirstName: '',
+        motherLastName: '',
+        motherMiddleName: '',
+        motherSuffix: '',
+        motherBirthdate: '',
+        motherEducationalAttainment: '',
+        motherCompany: '',
+        motherDesignation: '',
+        motherMobileNumber: '',
+        motherEmailAddress: '',
+        motherLandline: '',
 
-        guardian_firstName: '',
-        guardian_lastName: '',
-        guardian_guardianmiddleName: '',
-        guardian_birthdate: '',
-        guardian_education: '',
-        guardian_company: '',
-        guardian_designation: '',
-        guardian_mobile: '',
-        guardian_email: '',
-        guardian_landline: '',
+        fatherTitle: '',
+        fatherFirstName: '',
+        fatherLastName: '',
+        fatherMiddleName: '',
+        fatherSuffix: '',
+        fatherBirthdate: '',
+        fatherEducationalAttainment: '',
+        fatherCompany: '',
+        fatherDesignation: '',
+        fatherMobileNumber: '',
+        fatherEmailAddress: '',
+        fatherLandline: '',
+
+        guardianTitle: '',
+        guardianFirstName: '',
+        guardianLastName: '',
+        guardianMiddleName: '',
+        guardianSuffix: '',
+        guardianBirthdate: '',
+        guardianEducationalAttainment: '',
+        guardianCompany: '',
+        guardianDesignation: '',
+        guardianMobileNumber: '',
+        guardianEmailAddress: '',
+        guardianLandline: '',
+        refRelationshipTypeId: 0,
 
         street: '',
         barangay: '',
@@ -59,15 +78,6 @@ export default function ParentInformation(){
         zipCode: ''
     });
 
-    const register = e =>{
-        setLoading(true);
-        e.preventDefault();
-        setTimeout(()=>{
-            console.log('registering...')
-            setLoading(false);
-        }, 2000)
-    }
-
     const handleChange = e =>{
         const { name, value } = e.target;
         setInfo({
@@ -76,50 +86,96 @@ export default function ParentInformation(){
         });
     }
 
-    useEffect(()=>{
-        let isMounted = true;
-        
-        if(decryptData(data)){
-            console.log(decryptData(data))
-            const { firstName, lastName, middleName, mobileNumber, referenceCode, username } = decryptData(data);
-            if(isMounted){
-                if(referenceCode.toLowerCase() === 'father')
-                    setInfo({
-                        ...info,
-                        father_firstName: firstName,
-                        father_lastName: lastName,
-                        father_middleName: middleName,
-                        father_mobile: mobileNumber,
-                        father_email: username,
-                    })
-                else if(referenceCode.toLowerCase() === 'mother')
-                    setInfo({
-                        ...info,
-                        mother_firstName: firstName,
-                        mother_lastName: lastName,
-                        mother_middleName: middleName,
-                        mother_mobile: mobileNumber,
-                        mother_email: username,
-                    })
-                else 
-                    setInfo({
-                        ...info,
-                        guardian_firstName: firstName,
-                        guardian_lastName: lastName,
-                        guardian_middleName: middleName,
-                        guardian_mobile: mobileNumber,
-                        guardian_email: username,
-                    })
-            }
-        }else history.push('/');
+    const confirmLogout = () =>{
+        confirmAlert({
+            type: 'error',
+            title: 'Logout',
+            body: <p>Are you sure you want to logout?</p>,
+            btnText: 'Logout',
+            onClick: ()=> dispatch(logout())
+        })
+    }
 
+    const updateInformation = e =>{
+
+        e.preventDefault();
+        setLoading(true);
+        setErrors([]);
+
+        dispatch(updateParentInformation(info))
+        .then(res=>{
+            if(res.status === 200) updateAddress();
+            else setLoading(false);
+        })
+        .catch(err=>{
+            setLoading(false);
+            if(err){
+                if(err.status === 400){
+                    setErrors(_.map(_.keys(err.data.errors), key => {
+                        return key.replace('$.','');;
+                    }));
+                    Toast.error(displayErrors(err.data.errors, err.data.title));
+                }
+            }else showServerError();
+        })
+    }
+
+    const updateAddress = () =>{
+        dispatch(updateParentAddress({
+            applicantUserID,
+            address1: info.street,
+            address2: info.barangay,
+            address3: info.municipality,
+            address4: info.province,
+            country: info.country,
+            zipCode: info.zipCode
+        }))
+        .then(res=>{
+            if(res.status === 200){
+                Toast.success('Your information has been successfully updated.');
+                dispatch(grantUser());
+                history.push('/');
+            }
+            else setLoading(false);
+        })
+        .catch(err=>{
+            setLoading(false);
+            if(err){
+                if(err.status === 400){
+                    setErrors(_.map(_.keys(err.data.errors), key => {
+                        return key.replace('$.','');
+                    }));
+                    Toast.error(displayErrors(err.data.errors, err.data.title));
+                }
+            }else showServerError();
+        })
+    }
+
+    useEffect(()=>{
+        let isMounted  = true;
+        dispatch(getReference('RELATIONSHIPTYPE'))
+        .then(res=>{
+            if(isMounted){
+                setRelationshipOptions(res.data.map(item=>{
+                    const { referenceID: value, referenceDesc: label } = item;
+                    return { value, label };
+                }));
+                setRelationshipOptionsLoading(false);
+            }
+        })
+        .catch(err=>{
+            console.log(err)
+        })
         return ()=> isMounted = false;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [ dispatch ]);
+
+    if(!isNewUser){
+       return  <Redirect to="/" />
+    }
 
     return (
         <div className="flex flex-grow bg-gray-100 min-h-screen min-w-screen items-center justify-center relative p-4">
-            <form onSubmit={register} className="md:w-auto w-full">
+            <form onSubmit={updateInformation} className="md:w-auto w-full">
                
                 <div className="shadow-3xl bg-white w-full rounded-lg overflow-hidden">
                     <div className="grid grid-cols-12">
@@ -144,21 +200,21 @@ export default function ParentInformation(){
                                 <div>
                                     <h1 className="text-lg text-gray-600 mb-2 mx-auto font-medium block border-t pt-8 sm:px-14 px-8">Mother</h1>
                                     <div className="grid grid-cols-12 gap-x-3 sm:px-14 sm:pb-14 p-8 pt-0">
-                                        <div className="md:col-span-4 col-span-12">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="First Name"
-                                                name="mother_firstName"
-                                                value={info.mother_firstName}
+                                                name="motherFirstName"
+                                                value={info.motherFirstName}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
-                                        <div className="md:col-span-4 col-span-12">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Last Name"
-                                                name="mother_lastName"
-                                                value={info.mother_lastName}
+                                                name="motherLastName"
+                                                value={info.motherLastName}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
@@ -167,8 +223,17 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Middle Name"
-                                                name="mother_middleName"
-                                                value={info.mother_middleName}
+                                                name="motherMiddleName"
+                                                value={info.motherMiddleName}
+                                                onChange={handleChange}
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-4 col-span-12">
+                                            <AuthInput
+                                                placeholder="Suffix"
+                                                name="motherSuffix"
+                                                value={info.motherSuffix}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -177,18 +242,27 @@ export default function ParentInformation(){
                                             <AuthInput
                                                 type="date"
                                                 placeholder="Birthdate"
-                                                name="mother_birthdate"
-                                                value={info.mother_birthdate}
+                                                name="motherBirthdate"
+                                                value={info.motherBirthdate}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
-                                        <div className="md:col-span-8 col-span-12">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Educational Attainment"
-                                                name="mother_education"
-                                                value={info.mother_education}
+                                                name="motherEducationalAttainment"
+                                                value={info.motherEducationalAttainment}
+                                                onChange={handleChange}
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-6 col-span-12">
+                                            <AuthInput
+                                                placeholder="Occupation"
+                                                name="motherTitle"
+                                                value={info.motherTitle}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -196,8 +270,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Company"
-                                                name="mother_company"
-                                                value={info.mother_company}
+                                                name="motherCompany"
+                                                value={info.motherCompany}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -205,8 +279,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Designation"
-                                                name="mother_designation"
-                                                value={info.mother_designation}
+                                                name="motherDesignation"
+                                                value={info.motherDesignation}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -214,8 +288,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Mobile Number"
-                                                name="mother_mobile"
-                                                value={info.mother_mobile}
+                                                name="motherMobileNumber"
+                                                value={info.motherMobileNumber}
                                                 onChange={handleChange}
                                                 icon={<DeviceMobileIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 required
@@ -225,8 +299,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Email Address"
-                                                name="mother_email"
-                                                value={info.mother_email}
+                                                name="motherEmailAddress"
+                                                value={info.motherEmailAddress}
                                                 onChange={handleChange}
                                                 icon={<MailIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 required
@@ -236,8 +310,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Landline"
-                                                name="mother_landline"
-                                                value={info.mother_landline}
+                                                name="motherLandline"
+                                                value={info.motherLandline}
                                                 onChange={handleChange}
                                                 icon={<PhoneIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 hasLabel
@@ -247,22 +321,22 @@ export default function ParentInformation(){
                                 </div>
                                 <div>
                                     <h1 className="text-lg text-gray-600 mb-2 mx-auto font-medium block border-t pt-8 sm:px-14 px-8">Father</h1>
-                                    <div className="grid grid-cols-12 gap-x-3 sm:px-14 px-8 pb-8">
-                                        <div className="md:col-span-4 col-span-12">
+                                    <div className="grid grid-cols-12 gap-x-3 sm:px-14 sm:pb-14 p-8 pt-0">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="First Name"
-                                                name="father_firstName"
-                                                value={info.father_firstName}
+                                                name="fatherFirstName"
+                                                value={info.fatherFirstName}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
-                                        <div className="md:col-span-4 col-span-12">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Last Name"
-                                                name="father_lastName"
-                                                value={info.father_lastName}
+                                                name="fatherLastName"
+                                                value={info.fatherLastName}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
@@ -271,8 +345,17 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Middle Name"
-                                                name="father_middleName"
-                                                value={info.father_middleName}
+                                                name="fatherMiddleName"
+                                                value={info.fatherMiddleName}
+                                                onChange={handleChange}
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-4 col-span-12">
+                                            <AuthInput
+                                                placeholder="Suffix"
+                                                name="fatherSuffix"
+                                                value={info.fatherSuffix}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -281,18 +364,27 @@ export default function ParentInformation(){
                                             <AuthInput
                                                 type="date"
                                                 placeholder="Birthdate"
-                                                name="father_birthdate"
-                                                value={info.father_birthdate}
+                                                name="fatherBirthdate"
+                                                value={info.fatherBirthdate}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
-                                        <div className="md:col-span-8 col-span-12">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Educational Attainment"
-                                                name="father_education"
-                                                value={info.father_education}
+                                                name="fatherEducationalAttainment"
+                                                value={info.fatherEducationalAttainment}
+                                                onChange={handleChange}
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-6 col-span-12">
+                                            <AuthInput
+                                                placeholder="Occupation"
+                                                name="fatherTitle"
+                                                value={info.fatherTitle}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -300,8 +392,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Company"
-                                                name="father_company"
-                                                value={info.father_company}
+                                                name="fatherCompany"
+                                                value={info.fatherCompany}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -309,8 +401,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Designation"
-                                                name="father_designation"
-                                                value={info.father_designation}
+                                                name="fatherDesignation"
+                                                value={info.fatherDesignation}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -318,8 +410,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Mobile Number"
-                                                name="father_mobile"
-                                                value={info.father_mobile}
+                                                name="fatherMobileNumber"
+                                                value={info.fatherMobileNumber}
                                                 onChange={handleChange}
                                                 icon={<DeviceMobileIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 required
@@ -329,8 +421,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Email Address"
-                                                name="father_email"
-                                                value={info.father_email}
+                                                name="fatherEmailAddress"
+                                                value={info.fatherEmailAddress}
                                                 onChange={handleChange}
                                                 icon={<MailIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 required
@@ -340,8 +432,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Landline"
-                                                name="father_landline"
-                                                value={info.father_landline}
+                                                name="fatherLandline"
+                                                value={info.fatherLandline}
                                                 onChange={handleChange}
                                                 icon={<PhoneIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 hasLabel
@@ -351,22 +443,22 @@ export default function ParentInformation(){
                                 </div>
                                 <div>
                                     <h1 className="text-lg text-gray-600 mb-2 mx-auto font-medium block border-t pt-8 sm:px-14 px-8">Guardian</h1>
-                                    <div className="grid grid-cols-12 gap-x-3 sm:px-14 px-8 pb-8">
-                                        <div className="md:col-span-4 col-span-12">
+                                    <div className="grid grid-cols-12 gap-x-3 sm:px-14 sm:pb-14 p-8 pt-0">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="First Name"
-                                                name="guardian_firstName"
-                                                value={info.guardian_firstName}
+                                                name="guardianFirstName"
+                                                value={info.guardianFirstName}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
-                                        <div className="md:col-span-4 col-span-12">
+                                        <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Last Name"
-                                                name="guardian_lastName"
-                                                value={info.guardian_lastName}
+                                                name="guardianLastName"
+                                                value={info.guardianLastName}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
@@ -375,8 +467,17 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Middle Name"
-                                                name="guardian_middleName"
-                                                value={info.guardian_middleName}
+                                                name="guardianMiddleName"
+                                                value={info.guardianMiddleName}
+                                                onChange={handleChange}
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-4 col-span-12">
+                                            <AuthInput
+                                                placeholder="Suffix"
+                                                name="guardianSuffix"
+                                                value={info.guardianSuffix}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -385,18 +486,37 @@ export default function ParentInformation(){
                                             <AuthInput
                                                 type="date"
                                                 placeholder="Birthdate"
-                                                name="guardian_birthdate"
-                                                value={info.guardian_birthdate}
+                                                name="guardianBirthdate"
+                                                value={info.guardianBirthdate}
                                                 onChange={handleChange}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
-                                        <div className="md:col-span-8 col-span-12">
+                                        <div className="md:col-span-4 col-span-12">
+                                            <AuthSelect
+                                                options={relationshipOptions}
+                                                placeholder="Relationship to Student"
+                                                isLoading={relationshipOptionsLoading}
+                                                onChange={({value}) => setInfo({...info, refRelationshipTypeId: value})}
+                                                required
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Educational Attainment"
-                                                name="guardian_education"
-                                                value={info.guardian_education}
+                                                name="guardianEducationalAttainment"
+                                                value={info.guardianEducationalAttainment}
+                                                onChange={handleChange}
+                                                hasLabel
+                                            />
+                                        </div>
+                                        <div className="md:col-span-4 col-span-12">
+                                            <AuthInput
+                                                placeholder="Occupation"
+                                                name="guardianTitle"
+                                                value={info.guardianTitle}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -404,8 +524,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Company"
-                                                name="guardian_company"
-                                                value={info.guardian_company}
+                                                name="guardianCompany"
+                                                value={info.guardianCompany}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -413,8 +533,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-6 col-span-12">
                                             <AuthInput
                                                 placeholder="Designation"
-                                                name="guardian_designation"
-                                                value={info.guardian_designation}
+                                                name="guardianDesignation"
+                                                value={info.guardianDesignation}
                                                 onChange={handleChange}
                                                 hasLabel
                                             />
@@ -422,8 +542,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Mobile Number"
-                                                name="guardian_mobile"
-                                                value={info.guardian_mobile}
+                                                name="guardianMobileNumber"
+                                                value={info.guardianMobileNumber}
                                                 onChange={handleChange}
                                                 icon={<DeviceMobileIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 required
@@ -433,8 +553,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Email Address"
-                                                name="guardian_email"
-                                                value={info.guardian_email}
+                                                name="guardianEmailAddress"
+                                                value={info.guardianEmailAddress}
                                                 onChange={handleChange}
                                                 icon={<MailIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 required
@@ -444,8 +564,8 @@ export default function ParentInformation(){
                                         <div className="md:col-span-4 col-span-12">
                                             <AuthInput
                                                 placeholder="Landline"
-                                                name="guardian_landline"
-                                                value={info.guardian_landline}
+                                                name="guardianLandline"
+                                                value={info.guardianLandline}
                                                 onChange={handleChange}
                                                 icon={<PhoneIcon className="h-5 text-gray-400 px-3 group-hover:text-eve-blue-700 transition duration-200 absolute"/>}
                                                 hasLabel
@@ -462,6 +582,7 @@ export default function ParentInformation(){
                                                 name="street"
                                                 value={info.street}
                                                 onChange={handleChange}
+                                                className={`${errors.includes('Address1') ? 'input-error' : ''}`}
                                                 required
                                                 hasLabel
                                             />
@@ -472,6 +593,7 @@ export default function ParentInformation(){
                                                 name="barangay"
                                                 value={info.barangay}
                                                 onChange={handleChange}
+                                                className={`${errors.includes('Address2') ? 'input-error' : ''}`}
                                                 required
                                                 hasLabel
                                             />
@@ -482,6 +604,7 @@ export default function ParentInformation(){
                                                 name="municipality"
                                                 value={info.municipality}
                                                 onChange={handleChange}
+                                                className={`${errors.includes('Address3') ? 'input-error' : ''}`}
                                                 required
                                                 hasLabel
                                             />
@@ -492,6 +615,7 @@ export default function ParentInformation(){
                                                 name="province"
                                                 value={info.province}
                                                 onChange={handleChange}
+                                                className={`${errors.includes('Address4') ? 'input-error' : ''}`}
                                                 required
                                                 hasLabel
                                             />
@@ -502,6 +626,7 @@ export default function ParentInformation(){
                                                 name="country"
                                                 value={info.country}
                                                 onChange={handleChange}
+                                                className={`${errors.includes('Country') ? 'input-error' : ''}`}
                                                 required
                                                 hasLabel
                                             />
@@ -512,16 +637,22 @@ export default function ParentInformation(){
                                                 name="zipCode"
                                                 value={info.zipCode}
                                                 onChange={handleChange}
+                                                className={`${errors.includes('zipCode') ? 'input-error' : ''}`}
                                                 required
                                                 hasLabel
                                             />
                                         </div>
                                     </div>
                                 </div>
-                                <div className="md:w-80 w-full sm:px-14 p-8">
+                                <div className="md:w-80 w-full sm:px-14 p-8 md:flex gap-x-2">
+                                    <AuthBackBtn
+                                        text="Logout"
+                                        onClick={confirmLogout}
+                                    />
                                     <AuthSubmitBtn
                                         text="Update Information"
                                         loading={loading}
+                                        className="mt-3 md:mt-0"
                                     />
                                 </div>
                             </div>

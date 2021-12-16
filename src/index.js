@@ -7,15 +7,11 @@ import { ToastContainer } from 'react-toastify';
 
 import Routes from './routes';
 import store from './store';
-// import action from './store/actions';
 
 import './css/index.css';
 import './css/custom.scss';
 import 'react-toastify/dist/ReactToastify.min.css';
 import 'react-confirm-alert/src/react-confirm-alert.css';
-
-//Run Authentication Check
-// store.dispatch(action.checkAuth());
 
 //Redux Persistor
 const persistor = persistStore(store);
