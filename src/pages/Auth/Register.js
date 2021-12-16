@@ -36,6 +36,7 @@ export default function Regiser(){
         e.preventDefault();
         setLoading(true);
         setErrors([]);
+        
         dispatch(authRegister(credentials))
         .then(res=>{
             if(res.status === 200) formLogin();
